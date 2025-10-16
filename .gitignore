@@ -68,3 +68,6 @@ Thumbs.db
 # Sample data
 sample/
 
+# test files
+test/
+test*
