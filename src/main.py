@@ -1,6 +1,6 @@
 """
 Main Entry Point
-File chính để chạy NTFS File Recovery Tool
+Main file to run NTFS File Recovery Tool
 """
 
 import sys
@@ -22,80 +22,80 @@ def parse_arguments():
         Parsed arguments object
     """
     parser = argparse.ArgumentParser(
-        description='NTFS File Recovery Tool - Phục hồi file đã xóa từ NTFS',
+        description='NTFS File Recovery Tool - Recover deleted files from NTFS',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Ví dụ:
-  # Quét và hiển thị danh sách file đã xóa
+Examples:
+  # Scan and display list of deleted files
   python3 -m src.main disk.img --scan-only
 
-  # Phục hồi tất cả file đã xóa
+  # Recover all deleted files
   python3 -m src.main disk.img -o ./recovered
 
-  # Phục hồi chỉ file PDF và DOCX
+  # Recover only PDF and DOCX files
   python3 -m src.main disk.img -e pdf,docx -o ./recovered
 
-  # Phục hồi file theo inode
+  # Recover file by inode
   python3 -m src.main disk.img -i 12345 -o ./recovered
         """
     )
     
     parser.add_argument(
         'image',
-        help='Đường dẫn đến NTFS disk image'
+        help='Path to NTFS disk image'
     )
     
     parser.add_argument(
         '-o', '--output',
         default='./recovered',
-        help='Thư mục đầu ra cho file đã phục hồi (mặc định: ./recovered)'
+        help='Output directory for recovered files (default: ./recovered)'
     )
     
     parser.add_argument(
         '-e', '--extensions',
-        help='Lọc theo extension, phân cách bằng dấu phẩy (vd: txt,pdf,jpg)'
+        help='Filter by extension, comma-separated (e.g., txt,pdf,jpg)'
     )
     
     parser.add_argument(
         '-s', '--min-size',
         type=int,
         default=0,
-        help='Kích thước tối thiểu của file (bytes)'
+        help='Minimum file size (bytes)'
     )
     
     parser.add_argument(
         '-m', '--max-size',
         type=int,
-        help='Kích thước tối đa của file (bytes)'
+        help='Maximum file size (bytes)'
     )
     
     parser.add_argument(
         '-i', '--inode',
         type=int,
-        help='Phục hồi file theo inode cụ thể'
+        help='Recover file by specific inode'
     )
     
     parser.add_argument(
         '--scan-only',
         action='store_true',
-        help='Chỉ quét và hiển thị danh sách file, không phục hồi'
+        help='Only scan and display file list, do not recover'
     )
     
     parser.add_argument(
         '--no-progress',
         action='store_true',
-        help='Tắt progress bar'
+        help='Disable progress bar'
     )
     
     parser.add_argument(
         '--max-files',
         type=int,
-        help='Giới hạn số lượng file phục hồi'
+        help='Limit number of files to recover'
     )
     
     parser.add_argument(
         '--report',
-        help='Đường dẫn file báo cáo kết quả'
+        help='Path to recovery report file'
     )
     
     return parser.parse_args()
@@ -103,29 +103,29 @@ Ví dụ:
 
 def scan_deleted_files(parser: NTFSParser, ui: UserInterface) -> List[DeletedFileInfo]:
     """
-    Quét và tìm các file đã xóa
+    Scan and find deleted files
     
     Args:
         parser: NTFSParser object
         ui: UserInterface object
         
     Returns:
-        Danh sách DeletedFileInfo objects
+        List of DeletedFileInfo objects
     """
-    ui.print_section("QUÉT FILESYSTEM")
+    ui.print_section("SCANNING FILESYSTEM")
     
-    # Tạo MFT Analyzer
+    # Create MFT Analyzer
     analyzer = MFTAnalyzer(parser.get_filesystem())
     
-    # Quét deleted files bằng cách quét trực tiếp MFT entries
-    ui.print_info("Đang quét MFT để tìm file đã xóa...")
+    # Scan deleted files by directly scanning MFT entries
+    ui.print_info("Scanning MFT for deleted files...")
     deleted_files = analyzer.scan_mft_directly()
     
     if not deleted_files:
-        ui.print_warning("Không tìm thấy file đã xóa nào")
+        ui.print_warning("No deleted files found")
         return []
     
-    # Hiển thị thống kê
+    # Display statistics
     stats = analyzer.get_statistics()
     ui.display_statistics(stats)
     
@@ -135,39 +135,39 @@ def scan_deleted_files(parser: NTFSParser, ui: UserInterface) -> List[DeletedFil
 def filter_files(deleted_files: List[DeletedFileInfo], 
                 args, ui: UserInterface) -> List[DeletedFileInfo]:
     """
-    Lọc danh sách file theo các tiêu chí
+    Filter file list by criteria
     
     Args:
-        deleted_files: Danh sách file ban đầu
+        deleted_files: Initial file list
         args: Command line arguments
         ui: UserInterface object
         
     Returns:
-        Danh sách file đã được lọc
+        Filtered file list
     """
     filtered = deleted_files
     
-    # Lọc theo extension
+    # Filter by extension
     if args.extensions:
         extensions = [ext.strip().lower() for ext in args.extensions.split(',')]
         filtered = [f for f in filtered if f.extension.lower() in extensions]
-        ui.print_info(f"Lọc theo extension {extensions}: còn {len(filtered)} file")
+        ui.print_info(f"Filter by extension {extensions}: {len(filtered)} files remaining")
     
-    # Lọc theo size
+    # Filter by size
     if args.min_size > 0:
         filtered = [f for f in filtered if f.size >= args.min_size]
-        ui.print_info(f"Lọc theo min size {args.min_size} bytes: còn {len(filtered)} file")
+        ui.print_info(f"Filter by min size {args.min_size} bytes: {len(filtered)} files remaining")
     
     if args.max_size:
         filtered = [f for f in filtered if f.size <= args.max_size]
-        ui.print_info(f"Lọc theo max size {args.max_size} bytes: còn {len(filtered)} file")
+        ui.print_info(f"Filter by max size {args.max_size} bytes: {len(filtered)} files remaining")
     
-    # Giới hạn số lượng
+    # Limit count
     if args.max_files and len(filtered) > args.max_files:
         filtered = filtered[:args.max_files]
-        ui.print_info(f"Giới hạn {args.max_files} file đầu tiên")
+        ui.print_info(f"Limit to first {args.max_files} files")
     
-    # Lọc bỏ directories
+    # Filter out directories
     filtered = [f for f in filtered if not f.is_directory]
     
     return filtered
@@ -176,59 +176,59 @@ def filter_files(deleted_files: List[DeletedFileInfo],
 def recover_files(parser: NTFSParser, deleted_files: List[DeletedFileInfo],
                  args, ui: UserInterface):
     """
-    Thực hiện phục hồi các file
+    Perform file recovery
     
     Args:
         parser: NTFSParser object
-        deleted_files: Danh sách file cần phục hồi
+        deleted_files: List of files to recover
         args: Command line arguments
         ui: UserInterface object
     """
-    ui.print_section("PHỤC HỒI FILE")
+    ui.print_section("FILE RECOVERY")
     
     if not deleted_files:
-        ui.print_warning("Không có file nào để phục hồi")
+        ui.print_warning("No files to recover")
         return
     
-    # Hiển thị danh sách file
+    # Display file list
     ui.display_deleted_files_table(deleted_files, max_display=50)
     
-    # Xác nhận
+    # Confirmation
     if not args.scan_only:
         total_size = sum(f.size for f in deleted_files)
         size_str = ui._format_size(total_size)
         
-        print(f"\n{ui._format_size(total_size)} sẽ được phục hồi vào thư mục: {args.output}")
+        print(f"\n{ui._format_size(total_size)} will be recovered to directory: {args.output}")
         
-        if not ui.confirm_action(f"Bạn có muốn phục hồi {len(deleted_files)} file?", default=True):
-            ui.print_warning("Hủy bỏ phục hồi")
+        if not ui.confirm_action(f"Do you want to recover {len(deleted_files)} files?", default=True):
+            ui.print_warning("Recovery cancelled")
             return
     else:
-        ui.print_info("Chế độ scan-only: không phục hồi file")
+        ui.print_info("Scan-only mode: not recovering files")
         return
     
-    # Tạo FileRecovery object
+    # Create FileRecovery object
     recovery = FileRecovery(parser.get_filesystem(), args.output)
     
-    # Tạo progress callback
+    # Create progress callback
     if not args.no_progress:
-        progress_bar = ui.create_progress_bar(len(deleted_files), "Phục hồi")
+        progress_bar = ui.create_progress_bar(len(deleted_files), "Recovering")
         
         def progress_callback(current, total, filename):
             progress_bar.update(1)
             progress_bar.set_postfix_str(filename[:30])
         
-        # Phục hồi với progress bar
+        # Recover with progress bar
         stats = recovery.recover_files(deleted_files, progress_callback)
         progress_bar.close()
     else:
-        # Phục hồi không có progress bar
+        # Recover without progress bar
         stats = recovery.recover_files(deleted_files)
     
-    # Hiển thị kết quả
+    # Display results
     ui.display_recovery_stats(stats)
     
-    # Tạo báo cáo nếu được yêu cầu
+    # Create report if requested
     if args.report:
         recovery.create_recovery_report(args.report)
 
@@ -236,7 +236,7 @@ def recover_files(parser: NTFSParser, deleted_files: List[DeletedFileInfo],
 def recover_by_inode(parser: NTFSParser, inode: int, 
                     args, ui: UserInterface):
     """
-    Phục hồi file theo inode cụ thể
+    Recover file by specific inode
     
     Args:
         parser: NTFSParser object
@@ -244,25 +244,25 @@ def recover_by_inode(parser: NTFSParser, inode: int,
         args: Command line arguments
         ui: UserInterface object
     """
-    ui.print_section(f"PHỤC HỒI FILE THEO INODE {inode}")
+    ui.print_section(f"RECOVER FILE BY INODE {inode}")
     
-    # Tạo FileRecovery object
+    # Create FileRecovery object
     recovery = FileRecovery(parser.get_filesystem(), args.output)
     
-    # Tạo tên file output
+    # Create output filename
     output_name = ui.prompt_input(
-        "Nhập tên file output", 
+        "Enter output filename", 
         default=f"recovered_inode_{inode}"
     )
     
-    # Phục hồi
-    ui.print_info(f"Đang phục hồi inode {inode}...")
+    # Recover
+    ui.print_info(f"Recovering inode {inode}...")
     success = recovery.recover_by_inode(inode, output_name)
     
     if success:
-        ui.print_success(f"Đã phục hồi file vào: {os.path.join(args.output, output_name)}")
+        ui.print_success(f"File recovered to: {os.path.join(args.output, output_name)}")
     else:
-        ui.print_error("Phục hồi thất bại")
+        ui.print_error("Recovery failed")
 
 
 def main():
@@ -272,57 +272,57 @@ def main():
     # Parse arguments
     args = parse_arguments()
     
-    # Tạo UI
+    # Create UI
     ui = UserInterface()
     ui.print_banner()
     
-    # Kiểm tra file image có tồn tại không
+    # Check if image file exists
     if not os.path.exists(args.image):
-        ui.print_error(f"Không tìm thấy disk image: {args.image}")
+        ui.print_error(f"Disk image not found: {args.image}")
         sys.exit(1)
     
     try:
-        # Khởi tạo NTFS Parser
-        ui.print_section("KHỞI TẠO")
-        ui.print_info(f"Đang mở disk image: {args.image}")
+        # Initialize NTFS Parser
+        ui.print_section("INITIALIZATION")
+        ui.print_info(f"Opening disk image: {args.image}")
         
         parser = NTFSParser(args.image)
         
         if not parser.initialize():
-            ui.print_error("Không thể khởi tạo NTFS parser")
+            ui.print_error("Unable to initialize NTFS parser")
             sys.exit(1)
         
-        # Nếu chỉ định inode cụ thể
+        # If specific inode specified
         if args.inode:
             recover_by_inode(parser, args.inode, args, ui)
             parser.close()
             return
         
-        # Quét deleted files
+        # Scan deleted files
         deleted_files = scan_deleted_files(parser, ui)
         
         if not deleted_files:
             parser.close()
             return
         
-        # Lọc files
+        # Filter files
         filtered_files = filter_files(deleted_files, args, ui)
         
-        # Phục hồi files
+        # Recover files
         recover_files(parser, filtered_files, args, ui)
         
-        # Đóng parser
+        # Close parser
         parser.close()
         
-        ui.print_success("Hoàn tất!")
+        ui.print_success("Completed!")
         
     except KeyboardInterrupt:
         print()
-        ui.print_warning("Đã hủy bỏ bởi người dùng")
+        ui.print_warning("Cancelled by user")
         sys.exit(0)
         
     except Exception as e:
-        ui.print_error(f"Lỗi: {e}")
+        ui.print_error(f"Error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

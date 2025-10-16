@@ -1,123 +1,139 @@
-# Cấu trúc Project
+# Project Structure
 
-## 📁 Tổng quan cây thư mục
+## 📁 Directory Tree Overview
 
 ```
 pytsk3/
-├── src/                          # Source code chính
+├── src/                          # Main source code
 │   ├── __init__.py              # Package initialization
-│   ├── main.py                  # Entry point - điều phối toàn bộ flow
-│   ├── ntfs_parser.py           # Module parse NTFS structure
-│   ├── mft_analyzer.py          # Module phân tích Master File Table
-│   ├── fragment_handler.py      # Module xử lý file fragmentation
-│   ├── file_recovery.py         # Module core logic phục hồi file
+│   ├── main.py                  # Entry point - orchestrates entire flow
+│   ├── ntfs_parser.py           # NTFS structure parsing module
+│   ├── mft_analyzer.py          # Master File Table analysis module
+│   ├── file_type_detector.py    # File type detection module (3 sources)
+│   ├── fragment_handler.py      # File fragmentation handling module
+│   ├── file_recovery.py         # Core file recovery logic module
 │   └── ui/                      # User Interface package
 │       ├── __init__.py
-│       └── interface.py         # CLI interface với colors & progress
+│       └── interface.py         # CLI interface with colors & progress
 │
 ├── tests/                        # Test suite
 │   ├── __init__.py
-│   └── test_recovery.py         # Unit tests cho các modules
+│   └── test_recovery.py         # Unit tests for modules
 │
 ├── examples/                     # Demo scripts
-│   └── demo.py                  # Các demo scenarios khác nhau
+│   └── demo.py                  # Various demo scenarios
 │
-├── docs/                         # Documentation (có thể thêm)
+├── docs/                         # Documentation
+│   ├── FILE_TYPE_DETECTION.md
+│   ├── MFT_FILE_DETECTION.md
+│   ├── FILENAME_BASED_DETECTION.md
+│   └── OFFICE_FILE_DETECTION.md
 │
-├── recovered/                    # Output mặc định (gitignored)
+├── recovered/                    # Default output (gitignored)
 │
 ├── .gitignore                    # Git ignore rules
 ├── LICENSE                       # MIT License
-├── README.md                     # Documentation chính
-├── INSTALL.md                    # Hướng dẫn cài đặt chi tiết
-├── USAGE_EXAMPLES.md            # Ví dụ sử dụng chi tiết
-├── PROJECT_STRUCTURE.md         # File này - cấu trúc project
+├── README.md                     # Main documentation
+├── INSTALL.md                    # Detailed installation guide
+├── USAGE_EXAMPLES.md            # Detailed usage examples
+├── PROJECT_STRUCTURE.md         # This file - project structure
 ├── requirements.txt             # Python dependencies
 ├── setup.py                     # Package setup configuration
-└── abstract.txt                 # Abstract của paper nghiên cứu
+└── abstract.txt                 # Research paper abstract
 ```
 
-## 📄 Chi tiết từng file
+## 📄 File Details
 
 ### Core Source Files
 
 #### `src/main.py`
-- **Mục đích**: Entry point chính của application
-- **Chức năng**:
+- **Purpose**: Main application entry point
+- **Features**:
   - Parse command-line arguments
-  - Orchestrate toàn bộ workflow
-  - Kết nối các modules lại với nhau
-- **Dependencies**: Tất cả các modules khác
-- **Kích thước**: ~250 lines
+  - Orchestrate entire workflow
+  - Connect modules together
+- **Dependencies**: All other modules
+- **Size**: ~250 lines
 
 #### `src/ntfs_parser.py`
-- **Mục đích**: Xử lý NTFS disk structure
-- **Class chính**: `NTFSParser`
-- **Chức năng**:
-  - Mở disk image
+- **Purpose**: Handle NTFS disk structure
+- **Main Class**: `NTFSParser`
+- **Features**:
+  - Open disk image
   - Detect partition offset
-  - Mở NTFS filesystem
-  - Cung cấp interface để truy cập filesystem
+  - Open NTFS filesystem
+  - Provide filesystem access interface
 - **Dependencies**: pytsk3
-- **Kích thước**: ~200 lines
+- **Size**: ~200 lines
 
 #### `src/mft_analyzer.py`
-- **Mục đích**: Phân tích Master File Table
-- **Classes chính**: 
-  - `DeletedFileInfo`: Data class chứa thông tin file
-  - `MFTAnalyzer`: Analyzer chính
-- **Chức năng**:
-  - Traverse directories để tìm deleted files
+- **Purpose**: Analyze Master File Table
+- **Main Classes**: 
+  - `DeletedFileInfo`: Data class containing file information
+  - `MFTAnalyzer`: Main analyzer
+- **Features**:
+  - Traverse directories to find deleted files
   - Extract metadata (name, size, timestamps)
-  - Filter files theo extension, size
-  - Tính toán statistics
+  - Filter files by extension, size
+  - Calculate statistics
 - **Dependencies**: pytsk3, datetime
-- **Kích thước**: ~300 lines
+- **Size**: ~400 lines
+
+#### `src/file_type_detector.py`
+- **Purpose**: Detect file types using 3 sources
+- **Main Class**: `FileTypeDetector`
+- **Features**:
+  - MFT filename extraction (priority 1)
+  - Extension database lookup (300+ extensions)
+  - Magic number detection (ZIP-based formats)
+  - File categorization (7 categories)
+- **Dependencies**: zipfile, struct
+- **Size**: ~800 lines
 
 #### `src/fragment_handler.py`
-- **Mục đích**: Xử lý file fragmentation
-- **Classes chính**:
-  - `DataRun`: Đại diện cho một đoạn data
-  - `FragmentHandler`: Handler chính
-- **Chức năng**:
-  - Extract data runs từ file attributes
-  - Đọc fragmented files
-  - Rebuild file từ multiple fragments
-  - Kiểm tra data integrity
+- **Purpose**: Handle file fragmentation
+- **Main Classes**:
+  - `DataRun`: Represents a data segment
+  - `FragmentHandler`: Main handler
+- **Features**:
+  - Extract data runs from file attributes
+  - Read fragmented files
+  - Rebuild files from multiple fragments
+  - Check data integrity
 - **Dependencies**: pytsk3
-- **Kích thước**: ~250 lines
+- **Size**: ~250 lines
 
 #### `src/file_recovery.py`
-- **Mục đích**: Core logic phục hồi files
-- **Classes chính**:
+- **Purpose**: Core file recovery logic
+- **Main Classes**:
   - `RecoveryStats`: Tracking statistics
-  - `FileRecovery`: Recovery engine chính
-- **Chức năng**:
-  - Phục hồi individual files
-  - Batch recovery nhiều files
+  - `FileRecovery`: Main recovery engine
+- **Features**:
+  - Recover individual files
+  - Batch recovery of multiple files
   - Sanitize filenames
-  - Tạo recovery reports
+  - Create recovery reports
   - Progress tracking
-- **Dependencies**: fragment_handler, mft_analyzer, pytsk3
-- **Kích thước**: ~350 lines
+- **Dependencies**: fragment_handler, mft_analyzer, file_type_detector, pytsk3
+- **Size**: ~350 lines
 
 #### `src/ui/interface.py`
-- **Mục đích**: User interface CLI
-- **Class chính**: `UserInterface`
-- **Chức năng**:
-  - Pretty printing với colors
+- **Purpose**: CLI user interface
+- **Main Class**: `UserInterface`
+- **Features**:
+  - Pretty printing with colors
   - Display tables (deleted files list)
   - Progress bars
   - User confirmation prompts
   - Input handling
   - Help display
 - **Dependencies**: colorama, tqdm, tabulate
-- **Kích thước**: ~300 lines
+- **Size**: ~350 lines
 
 ### Test Files
 
 #### `tests/test_recovery.py`
-- **Mục đích**: Unit tests
+- **Purpose**: Unit tests
 - **Test Classes**:
   - `TestDeletedFileInfo`
   - `TestDataRun`
@@ -126,23 +142,23 @@ pytsk3/
   - `TestFragmentHandler`
   - `TestFileRecovery`
 - **Coverage**: ~70-80% code coverage
-- **Kích thước**: ~400 lines
+- **Size**: ~400 lines
 
 ### Example Files
 
 #### `examples/demo.py`
-- **Mục đích**: Demo scripts cho các use cases
+- **Purpose**: Demo scripts for use cases
 - **Demo Functions**:
-  - `demo_scan_only()`: Quét only
-  - `demo_recover_by_extension()`: Phục hồi theo extension
-  - `demo_recover_by_inode()`: Phục hồi theo inode
+  - `demo_scan_only()`: Scan only
+  - `demo_recover_by_extension()`: Recover by extension
+  - `demo_recover_by_inode()`: Recover by inode
   - `demo_full_recovery()`: Full demo
-- **Kích thước**: ~350 lines
+- **Size**: ~350 lines
 
 ### Documentation Files
 
 #### `README.md`
-- Tài liệu chính
+- Main documentation
 - Features overview
 - Installation guide
 - Basic usage
@@ -150,23 +166,29 @@ pytsk3/
 - ~500 lines
 
 #### `INSTALL.md`
-- Hướng dẫn cài đặt chi tiết
+- Detailed installation guide
 - Platform-specific instructions
 - Troubleshooting
 - Docker setup
-- ~300 lines
+- ~250 lines
 
 #### `USAGE_EXAMPLES.md`
-- Ví dụ sử dụng thực tế
-- Use cases cụ thể
+- Real-world usage examples
+- Specific use cases
 - Tips and tricks
-- ~400 lines
+- ~350 lines
 
 #### `PROJECT_STRUCTURE.md`
-- File này
-- Mô tả cấu trúc project
-- Chi tiết từng file
+- This file
+- Project structure description
+- File details
 - ~200 lines
+
+#### `docs/` Directory
+- Technical documentation
+- File type detection strategies
+- MFT-based detection
+- Office format detection
 
 ### Configuration Files
 
@@ -203,6 +225,8 @@ NTFSParser (Open image)
     ↓
 MFTAnalyzer (Scan deleted files)
     ↓
+FileTypeDetector (Detect file types - 3 sources)
+    ↓
 [Optional] Filters (extension, size)
     ↓
 FileRecovery + FragmentHandler
@@ -218,8 +242,10 @@ UserInterface (Display results)
 main.py
 ├── ntfs_parser.py
 ├── mft_analyzer.py
+│   ├── file_type_detector.py
 │   └── (uses pytsk3)
 ├── file_recovery.py
+│   ├── file_type_detector.py
 │   ├── fragment_handler.py
 │   │   └── (uses pytsk3)
 │   └── mft_analyzer.py
@@ -232,22 +258,26 @@ main.py
 ## 🎯 Design Patterns
 
 ### 1. **Separation of Concerns**
-- Mỗi module có trách nhiệm riêng biệt
-- UI tách biệt khỏi business logic
-- Parser tách biệt khỏi recovery logic
+- Each module has distinct responsibility
+- UI separated from business logic
+- Parser separated from recovery logic
 
 ### 2. **Dependency Injection**
-- FileRecovery nhận fs_info qua constructor
-- MFTAnalyzer nhận fs_info qua constructor
-- Dễ dàng testing với mocks
+- FileRecovery receives fs_info through constructor
+- MFTAnalyzer receives fs_info through constructor
+- Easy testing with mocks
 
 ### 3. **Data Classes**
 - `DeletedFileInfo`: Encapsulate file metadata
 - `DataRun`: Encapsulate fragment info
 - `RecoveryStats`: Encapsulate statistics
 
-### 4. **Error Handling**
-- Try-except blocks ở mọi critical operations
+### 4. **Strategy Pattern**
+- FileTypeDetector uses 3-source strategy
+- Priority: MFT → Extension DB → Magic Number
+
+### 5. **Error Handling**
+- Try-except blocks in all critical operations
 - Graceful degradation
 - Comprehensive error messages
 
@@ -255,64 +285,64 @@ main.py
 
 | Component | Lines of Code | Files |
 |-----------|--------------|-------|
-| Core Logic | ~1,650 | 6 |
+| Core Logic | ~2,400 | 7 |
 | Tests | ~400 | 1 |
 | Examples | ~350 | 1 |
-| Documentation | ~1,400 | 4 |
-| **Total** | **~3,800** | **12** |
+| Documentation | ~1,400 | 6+ |
+| **Total** | **~4,550** | **15+** |
 
 ## 🔧 Extension Points
 
-Để mở rộng tool:
+To extend the tool:
 
-1. **Hỗ trợ file systems khác**:
-   - Tạo `Ext4Parser`, `FATParser` tương tự `NTFSParser`
-   - Implement interface chung
+1. **Support other file systems**:
+   - Create `Ext4Parser`, `FATParser` similar to `NTFSParser`
+   - Implement common interface
 
 2. **GUI Interface**:
-   - Tạo `src/ui/gui.py` với tkinter/PyQt
-   - Reuse toàn bộ core logic
+   - Create `src/ui/gui.py` with tkinter/PyQt
+   - Reuse entire core logic
 
 3. **Advanced Filtering**:
-   - Thêm methods vào `MFTAnalyzer`
-   - Filter theo date, file signature, etc.
+   - Add methods to `MFTAnalyzer`
+   - Filter by date, file signature, etc.
 
 4. **Machine Learning**:
-   - Tạo `src/ml/classifier.py`
+   - Create `src/ml/classifier.py`
    - File type classification
    - Recovery success prediction
 
 5. **Parallel Processing**:
    - Modify `FileRecovery.recover_files()`
-   - Sử dụng multiprocessing/threading
+   - Use multiprocessing/threading
 
 ## 📝 Coding Conventions
 
 - **Style Guide**: PEP 8
 - **Docstrings**: Google style
-- **Type Hints**: Sử dụng typing module
-- **Error Messages**: Tiếng Việt (theo user preference)
-- **Comments**: Tiếng Việt cho clarity
+- **Type Hints**: Using typing module
+- **Error Messages**: English
+- **Comments**: English for clarity
 
 ## 🎓 Learning Path
 
-Để hiểu project:
+To understand the project:
 
-1. Đọc `README.md` - overview
-2. Xem `abstract.txt` - hiểu paper
-3. Chạy `examples/demo.py` - thấy tool hoạt động
-4. Đọc `src/main.py` - hiểu flow
-5. Đọc từng module theo thứ tự:
+1. Read `README.md` - overview
+2. View `abstract.txt` - understand paper
+3. Run `examples/demo.py` - see tool in action
+4. Read `src/main.py` - understand flow
+5. Read each module in order:
    - `ntfs_parser.py`
    - `mft_analyzer.py`
+   - `file_type_detector.py`
    - `fragment_handler.py`
    - `file_recovery.py`
    - `ui/interface.py`
-6. Đọc tests để hiểu usage
-7. Thử modify và extend
+6. Read tests to understand usage
+7. Try modifying and extending
 
 ---
 
 **Project Structure Version**: 1.0  
 **Last Updated**: 2024
-

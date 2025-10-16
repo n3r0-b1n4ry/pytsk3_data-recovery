@@ -1,97 +1,96 @@
 # Quick Start Guide
 
-## ⚡ Bắt đầu nhanh trong 5 phút
+## ⚡ Get Started in 5 Minutes
 
-### Bước 1: Cài đặt (2 phút)
+### Step 1: Installation (2 minutes)
 
 ```bash
-# Clone và setup
+# Clone and setup
 git clone <repo-url>
 cd pytsk3
 
-# Tạo virtual environment
+# Create virtual environment
 python3 -m venv venv
 source venv/bin/activate  # Linux/macOS
-# hoặc: venv\Scripts\activate  # Windows
+# or: venv\Scripts\activate  # Windows
 
-# Cài đặt
+# Install
 pip install -r requirements.txt
 ```
 
-### Bước 2: Chuẩn bị Disk Image
+### Step 2: Prepare Disk Image
 
 ```bash
-# Nếu có USB hoặc disk cần phục hồi:
+# If you have USB or disk to recover:
 # Linux:
 sudo dd if=/dev/sdb of=disk.img bs=4M status=progress
 
-# Hoặc dùng disk image có sẵn
+# Or use existing disk image
 ```
 
-### Bước 3: Quét File đã xóa (30 giây)
+### Step 3: Scan for Deleted Files (30 seconds)
 
 ```bash
 python3 -m src.main disk.img --scan-only
 ```
 
-**Bạn sẽ thấy:**
-- Danh sách file đã xóa
-- Kích thước, loại file, ngày sửa
-- Thống kê tổng quan
+**You will see:**
+- List of deleted files
+- Size, file type, modification date
+- Overall statistics
 
-### Bước 4: Phục hồi File (1-2 phút)
+### Step 4: Recover Files (1-2 minutes)
 
 ```bash
-# Phục hồi tất cả
+# Recover all
 python3 -m src.main disk.img -o ./recovered
 
-# Hoặc phục hồi có chọn lọc:
+# Or selective recovery:
 python3 -m src.main disk.img -e pdf,docx -o ./documents
 ```
 
-### Bước 5: Kiểm tra kết quả
+### Step 5: Check Results
 
 ```bash
 ls -lh ./recovered
 ```
 
-## 🎯 Các lệnh hay dùng
+## 🎯 Common Commands
 
 ```bash
-# Chỉ phục hồi ảnh
+# Recover only images
 python3 -m src.main disk.img -e jpg,png -o ./photos
 
-# Phục hồi file lớn hơn 1MB
+# Recover files larger than 1MB
 python3 -m src.main disk.img -s 1048576 -o ./large_files
 
-# Phục hồi file cụ thể theo inode
+# Recover specific file by inode
 python3 -m src.main disk.img -i 12345 -o ./recovered
 
-# Tạo báo cáo
+# Create report
 python3 -m src.main disk.img -o ./recovered --report report.txt
 ```
 
-## 📚 Đọc thêm
+## 📚 Further Reading
 
-- [README.md](README.md) - Tài liệu đầy đủ
-- [INSTALL.md](INSTALL.md) - Hướng dẫn cài đặt chi tiết
-- [USAGE_EXAMPLES.md](USAGE_EXAMPLES.md) - Ví dụ sử dụng
-- [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) - Cấu trúc project
+- [README.md](README.md) - Full documentation
+- [INSTALL.md](INSTALL.md) - Detailed installation guide
+- [USAGE_EXAMPLES.md](USAGE_EXAMPLES.md) - Usage examples
+- [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) - Project structure
 
-## 🆘 Cần giúp đỡ?
+## 🆘 Need Help?
 
 ```bash
-# Hiển thị help
+# Display help
 python3 -m src.main --help
 
-# Chạy demo
+# Run demo
 python3 examples/demo.py full disk.img
 
-# Chạy tests
+# Run tests
 python3 tests/test_recovery.py
 ```
 
 ---
 
-**Chúc bạn phục hồi thành công!** 🚀
-
+**Good luck with your recovery!** 🚀

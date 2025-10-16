@@ -1,23 +1,23 @@
-# Hướng dẫn cài đặt chi tiết
+# Detailed Installation Guide
 
-## 📦 Yêu cầu
+## 📦 Requirements
 
 ### Python Version
-- Python 3.8 trở lên
-- Khuyến nghị: Python 3.9 hoặc 3.10
+- Python 3.8 or higher
+- Recommended: Python 3.9 or 3.10
 
 ### Build Tools
 
-Để cài đặt PyTSK3, bạn cần compiler và build tools:
+To install PyTSK3, you need compiler and build tools:
 
 #### Windows
 ```bash
-# Cài đặt Visual Studio Build Tools
-# Download từ: https://visualstudio.microsoft.com/downloads/
-# Chọn "Desktop development with C++"
+# Install Visual Studio Build Tools
+# Download from: https://visualstudio.microsoft.com/downloads/
+# Select "Desktop development with C++"
 
-# Hoặc cài đặt pre-built wheel:
-# Download từ: https://github.com/py4n6/pytsk/releases
+# Or install pre-built wheel:
+# Download from: https://github.com/py4n6/pytsk/releases
 pip install pytsk3-xxxx-win_amd64.whl
 ```
 
@@ -36,32 +36,32 @@ sudo yum install python3-devel
 
 #### macOS
 ```bash
-# Cài đặt Xcode Command Line Tools
+# Install Xcode Command Line Tools
 xcode-select --install
 
-# Cài đặt Homebrew (nếu chưa có)
+# Install Homebrew (if not already installed)
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Cài đặt dependencies
+# Install dependencies
 brew install pkg-config autoconf automake libtool
 ```
 
-## 🚀 Cài đặt
+## 🚀 Installation
 
-### Bước 1: Clone Repository
+### Step 1: Clone Repository
 
 ```bash
 git clone https://github.com/yourusername/ntfs-file-recovery.git
 cd ntfs-file-recovery
 ```
 
-### Bước 2: Tạo Virtual Environment (Khuyến nghị)
+### Step 2: Create Virtual Environment (Recommended)
 
 ```bash
-# Tạo virtual environment
+# Create virtual environment
 python3 -m venv venv
 
-# Kích hoạt virtual environment
+# Activate virtual environment
 # Linux/macOS:
 source venv/bin/activate
 
@@ -72,60 +72,60 @@ venv\Scripts\activate.bat
 venv\Scripts\Activate.ps1
 ```
 
-### Bước 3: Cài đặt Dependencies
+### Step 3: Install Dependencies
 
 ```bash
 # Upgrade pip
 pip install --upgrade pip
 
-# Cài đặt requirements
+# Install requirements
 pip install -r requirements.txt
 ```
 
-### Bước 4: Cài đặt Package
+### Step 4: Install Package
 
 ```bash
-# Development mode (khuyến nghị cho development)
+# Development mode (recommended for development)
 pip install -e .
 
-# Hoặc cài đặt bình thường
+# Or regular installation
 pip install .
 ```
 
-## 🔧 Xử lý lỗi cài đặt
+## 🔧 Troubleshooting Installation Issues
 
-### Lỗi: PyTSK3 installation failed
+### Error: PyTSK3 installation failed
 
-**Giải pháp 1: Sử dụng pre-built wheels**
+**Solution 1: Use pre-built wheels**
 ```bash
 # Windows
 pip install pytsk3 --only-binary :all:
 
-# Nếu không được, download wheel từ:
+# If that doesn't work, download wheel from:
 # https://github.com/py4n6/pytsk/releases
 ```
 
-**Giải pháp 2: Build from source**
+**Solution 2: Build from source**
 ```bash
-# Cài đặt build dependencies trước
-# Sau đó:
+# Install build dependencies first
+# Then:
 pip install --no-binary :all: pytsk3
 ```
 
-### Lỗi: Permission denied
+### Error: Permission denied
 
 ```bash
-# Linux/macOS: Sử dụng sudo (không khuyến nghị)
-# Tốt hơn là sử dụng virtual environment
+# Linux/macOS: Using sudo (not recommended)
+# Better to use virtual environment
 
-# Hoặc cài đặt cho user:
+# Or install for user:
 pip install --user -r requirements.txt
 ```
 
-### Lỗi: Module not found
+### Error: Module not found
 
 ```bash
-# Đảm bảo bạn đã activate virtual environment
+# Ensure you've activated virtual environment
 source venv/bin/activate  # Linux/macOS
 venv\Scripts\activate     # Windows
 
@@ -133,31 +133,31 @@ venv\Scripts\activate     # Windows
 pip install -r requirements.txt
 ```
 
-## ✅ Kiểm tra cài đặt
+## ✅ Verify Installation
 
 ```bash
-# Kiểm tra Python version
+# Check Python version
 python3 --version
 
-# Kiểm tra PyTSK3
+# Check PyTSK3
 python3 -c "import pytsk3; print(pytsk3.__version__)"
 
-# Kiểm tra các packages khác
+# Check other packages
 python3 -c "import colorama, tqdm, tabulate; print('OK')"
 
-# Chạy tests
+# Run tests
 python3 tests/test_recovery.py
 
-# Hiển thị help
+# Display help
 python3 -m src.main --help
 ```
 
-## 🐳 Cài đặt với Docker (Alternative)
+## 🐳 Installation with Docker (Alternative)
 
-Nếu gặp khó khăn với cài đặt trực tiếp, bạn có thể sử dụng Docker:
+If you encounter difficulties with direct installation, you can use Docker:
 
 ```dockerfile
-# Dockerfile (tạo file này)
+# Dockerfile (create this file)
 FROM python:3.9-slim
 
 RUN apt-get update && apt-get install -y \
@@ -186,15 +186,15 @@ docker run -v $(pwd)/disk.img:/app/disk.img \
            ntfs-recovery disk.img -o /app/recovered
 ```
 
-## 📚 Cài đặt dependencies bổ sung
+## 📚 Additional Dependencies
 
-### Cho development
+### For development
 
 ```bash
 pip install pytest pytest-cov black flake8 mypy
 ```
 
-### Cho documentation
+### For documentation
 
 ```bash
 pip install sphinx sphinx-rtd-theme
@@ -213,19 +213,18 @@ pip install --upgrade -r requirements.txt
 pip install -e .
 ```
 
-## ❓ Hỗ trợ
+## ❓ Support
 
-Nếu gặp vấn đề, vui lòng:
-1. Kiểm tra [Issues](https://github.com/yourusername/ntfs-file-recovery/issues)
-2. Tạo issue mới với thông tin:
-   - OS và version
+If you encounter issues, please:
+1. Check [Issues](https://github.com/yourusername/ntfs-file-recovery/issues)
+2. Create new issue with information:
+   - OS and version
    - Python version
-   - Error message đầy đủ
-   - Output của `pip list`
+   - Full error message
+   - Output of `pip list`
 
-## 📖 Tài liệu thêm
+## 📖 Additional Documentation
 
-- [README.md](README.md) - Hướng dẫn sử dụng
+- [README.md](README.md) - Usage guide
 - [PyTSK Documentation](https://github.com/py4n6/pytsk)
 - [The Sleuth Kit](https://www.sleuthkit.org/)
-

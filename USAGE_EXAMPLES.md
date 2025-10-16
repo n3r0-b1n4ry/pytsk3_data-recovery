@@ -1,30 +1,30 @@
-# Ví dụ sử dụng chi tiết
+# Detailed Usage Examples
 
-## 📝 Mục lục
+## 📝 Table of Contents
 
-1. [Chuẩn bị Disk Image](#chuẩn-bị-disk-image)
-2. [Quét File đã xóa](#quét-file-đã-xóa)
-3. [Phục hồi File](#phục-hồi-file)
-4. [Lọc và Tìm kiếm](#lọc-và-tìm-kiếm)
-5. [Use Cases thực tế](#use-cases-thực-tế)
+1. [Preparing Disk Image](#preparing-disk-image)
+2. [Scanning Deleted Files](#scanning-deleted-files)
+3. [Recovering Files](#recovering-files)
+4. [Filtering and Searching](#filtering-and-searching)
+5. [Real-World Use Cases](#real-world-use-cases)
 
-## 🔧 Chuẩn bị Disk Image
+## 🔧 Preparing Disk Image
 
-### Tạo Image từ Physical Disk
+### Create Image from Physical Disk
 
 **Linux:**
 ```bash
-# List tất cả disks
+# List all disks
 lsblk
 
-# Tạo image từ USB drive (thay /dev/sdb với device của bạn)
+# Create image from USB drive (replace /dev/sdb with your device)
 sudo dd if=/dev/sdb of=usb_disk.img bs=4M status=progress
 
-# Tạo compressed image
+# Create compressed image
 sudo dd if=/dev/sdb bs=4M status=progress | gzip > usb_disk.img.gz
 ```
 
-**Windows (với FTK Imager hoặc dd for Windows):**
+**Windows (with FTK Imager or dd for Windows):**
 ```powershell
 # Download dd for Windows: http://www.chrysocome.net/dd
 dd.exe if=\\.\E: of=E:\disk.img bs=4M --progress
@@ -42,218 +42,218 @@ diskutil unmountDisk /dev/disk2
 sudo dd if=/dev/disk2 of=disk.img bs=4m
 ```
 
-### Tạo Test Image
+### Create Test Image
 
 ```bash
-# Tạo virtual disk image (100MB)
+# Create virtual disk image (100MB)
 dd if=/dev/zero of=test_disk.img bs=1M count=100
 
-# Format với NTFS (Linux)
+# Format with NTFS (Linux)
 mkfs.ntfs -F test_disk.img
 
-# Mount và thêm files
+# Mount and add files
 sudo mkdir /mnt/test
 sudo mount -o loop test_disk.img /mnt/test
 sudo cp some_files.txt /mnt/test/
-sudo rm /mnt/test/some_files.txt  # Xóa để test recovery
+sudo rm /mnt/test/some_files.txt  # Delete to test recovery
 sudo umount /mnt/test
 ```
 
-## 🔍 Quét File đã xóa
+## 🔍 Scanning Deleted Files
 
-### Quét cơ bản
+### Basic Scan
 
 ```bash
-# Quét và hiển thị tất cả file đã xóa
+# Scan and display all deleted files
 python3 -m src.main disk.img --scan-only
 ```
 
-**Output mẫu:**
+**Sample Output:**
 ```
 ======================================================================
                 NTFS FILE RECOVERY TOOL v1.0
-     Phục hồi file đã xóa từ NTFS sử dụng PyTSK3
+     Recover deleted files from NTFS using PyTSK3
 ======================================================================
 
-[+] Đã mở disk image: disk.img
+[+] Opened disk image: disk.img
 [+] Image size: 104857600 bytes
-[+] Đã phát hiện NTFS partition tại offset: 0
-[+] Đã mở NTFS filesystem
+[+] Detected NTFS partition at offset: 0
+[+] Opened NTFS filesystem
 
-DANH SÁCH FILE ĐÃ XÓA (15 file)
+DELETED FILES LIST (15 files)
 +----+--------+------------------+------------+------+-------------------+
-| #  | Inode  | Tên File         | Kích thước | Loại | Ngày sửa          |
+| #  | Inode  | File Name        | Size       | Type | Modified          |
 +====+========+==================+============+======+===================+
 | 1  | 123    | document.pdf     | 2.5 MB     | PDF  | 2024-01-15 10:30  |
 | 2  | 124    | photo.jpg        | 1.2 MB     | JPG  | 2024-01-14 15:20  |
 +----+--------+------------------+------------+------+-------------------+
 ```
 
-### Lưu danh sách ra file
+### Save List to File
 
 ```bash
 # Redirect output
 python3 -m src.main disk.img --scan-only > file_list.txt
 ```
 
-## 💾 Phục hồi File
+## 💾 Recovering Files
 
-### Phục hồi tất cả
+### Recover All
 
 ```bash
-# Phục hồi tất cả file vào thư mục ./recovered
+# Recover all files to ./recovered directory
 python3 -m src.main disk.img -o ./recovered
 
-# Với báo cáo chi tiết
+# With detailed report
 python3 -m src.main disk.img -o ./recovered --report recovery_report.txt
 ```
 
-### Phục hồi có chọn lọc
+### Selective Recovery
 
 ```bash
-# Chỉ phục hồi 10 file đầu tiên (để test)
+# Recover only first 10 files (for testing)
 python3 -m src.main disk.img -o ./recovered --max-files 10
 
-# Tắt progress bar (nếu chạy trong script)
+# Disable progress bar (when running in scripts)
 python3 -m src.main disk.img -o ./recovered --no-progress
 ```
 
-### Phục hồi file cụ thể theo inode
+### Recover Specific File by Inode
 
 ```bash
-# Phục hồi file có inode 12345
+# Recover file with inode 12345
 python3 -m src.main disk.img -i 12345 -o ./recovered
 
-# Kết hợp với scan để tìm inode
+# Combine with scan to find inode
 python3 -m src.main disk.img --scan-only | grep "important.doc"
-# Ghi nhớ inode number, sau đó:
+# Remember inode number, then:
 python3 -m src.main disk.img -i <inode_number> -o ./recovered
 ```
 
-## 🔎 Lọc và Tìm kiếm
+## 🔎 Filtering and Searching
 
-### Lọc theo Extension
+### Filter by Extension
 
 ```bash
-# Chỉ phục hồi documents
+# Recover only documents
 python3 -m src.main disk.img -e pdf,docx,doc,txt -o ./documents
 
-# Chỉ phục hồi ảnh
+# Recover only images
 python3 -m src.main disk.img -e jpg,jpeg,png,gif,bmp -o ./images
 
-# Chỉ phục hồi videos
+# Recover only videos
 python3 -m src.main disk.img -e mp4,avi,mkv,mov -o ./videos
 
 # Multiple extensions
 python3 -m src.main disk.img -e pdf,docx,xlsx,pptx -o ./office_files
 ```
 
-### Lọc theo Kích thước
+### Filter by Size
 
 ```bash
-# Chỉ file lớn hơn 1MB
+# Only files larger than 1MB
 python3 -m src.main disk.img -s 1048576 -o ./large_files
 
-# Chỉ file nhỏ hơn 10MB (để tránh file quá lớn)
+# Only files smaller than 10MB (to avoid very large files)
 python3 -m src.main disk.img -m 10485760 -o ./small_files
 
-# File từ 100KB đến 50MB
+# Files between 100KB and 50MB
 python3 -m src.main disk.img -s 102400 -m 52428800 -o ./medium_files
 
-# Chỉ file rất nhỏ (< 100KB) - có thể là text files
+# Only very small files (< 100KB) - likely text files
 python3 -m src.main disk.img -m 102400 -o ./tiny_files
 ```
 
-### Kết hợp nhiều bộ lọc
+### Combine Multiple Filters
 
 ```bash
-# PDF files lớn hơn 1MB
+# PDF files larger than 1MB
 python3 -m src.main disk.img -e pdf -s 1048576 -o ./large_pdfs
 
-# Ảnh JPG nhỏ hơn 5MB
+# JPG images smaller than 5MB
 python3 -m src.main disk.img -e jpg,jpeg -m 5242880 -o ./photos
 
-# Documents từ 10KB đến 10MB
+# Documents between 10KB and 10MB
 python3 -m src.main disk.img -e pdf,docx,txt -s 10240 -m 10485760 -o ./docs
 ```
 
-## 🎯 Use Cases thực tế
+## 🎯 Real-World Use Cases
 
-### Case 1: Phục hồi ảnh từ USB đã format
+### Case 1: Recover Photos from Formatted USB
 
 ```bash
-# Bước 1: Tạo image từ USB
+# Step 1: Create image from USB
 sudo dd if=/dev/sdb of=usb_backup.img bs=4M status=progress
 
-# Bước 2: Quét để xem có gì
+# Step 2: Scan to see what's available
 python3 -m src.main usb_backup.img --scan-only
 
-# Bước 3: Phục hồi tất cả ảnh
+# Step 3: Recover all images
 python3 -m src.main usb_backup.img -e jpg,png,raw,cr2 -o ./recovered_photos
 
-# Bước 4: Kiểm tra kết quả
+# Step 4: Check results
 ls -lh ./recovered_photos
 ```
 
-### Case 2: Phục hồi documents quan trọng
+### Case 2: Recover Important Documents
 
 ```bash
-# Quét và tìm file
+# Scan and find file
 python3 -m src.main disk.img --scan-only | grep -i "report"
 
-# Ghi nhớ inode của file "annual_report.docx"
-# Giả sử inode là 4567
+# Remember inode of "annual_report.docx"
+# Assume inode is 4567
 
-# Phục hồi file đó
+# Recover that file
 python3 -m src.main disk.img -i 4567 -o ./recovered
 
-# Hoặc phục hồi tất cả documents
+# Or recover all documents
 python3 -m src.main disk.img -e docx,xlsx,pptx,pdf -o ./recovered_docs
 ```
 
 ### Case 3: Digital Forensics Investigation
 
 ```bash
-# Bước 1: Tạo working copy của evidence
+# Step 1: Create working copy of evidence
 cp evidence.img working_copy.img
 
-# Bước 2: Quét toàn bộ và lưu báo cáo
+# Step 2: Scan and save report
 python3 -m src.main working_copy.img --scan-only > scan_report.txt
 
-# Bước 3: Phục hồi tất cả với báo cáo chi tiết
+# Step 3: Recover all with detailed report
 python3 -m src.main working_copy.img -o ./evidence_recovery \
     --report forensics_report.txt
 
-# Bước 4: Phân tích theo loại file
+# Step 4: Analyze by file type
 python3 -m src.main working_copy.img -e exe,dll -o ./executables
 python3 -m src.main working_copy.img -e pdf,doc -o ./documents
 python3 -m src.main working_copy.img -e jpg,png -o ./images
 
-# Bước 5: Tạo checksums
+# Step 5: Create checksums
 cd evidence_recovery
 find . -type f -exec sha256sum {} \; > checksums.txt
 ```
 
-### Case 4: Phục hồi từ disk bị hỏng
+### Case 4: Recover from Damaged Disk
 
 ```bash
-# Tạo image với ddrescue (tốt hơn dd cho disk lỗi)
+# Create image with ddrescue (better than dd for damaged disks)
 sudo ddrescue -f -n /dev/sdb disk_rescue.img rescue.log
 
-# Quét với caution
+# Scan with caution
 python3 -m src.main disk_rescue.img --scan-only
 
-# Phục hồi từng loại file, bắt đầu với quan trọng nhất
+# Recover by file type, starting with most important
 python3 -m src.main disk_rescue.img -e docx,xlsx -o ./important_docs
 python3 -m src.main disk_rescue.img -e jpg,png -o ./photos
 python3 -m src.main disk_rescue.img -e pdf -o ./pdfs
 ```
 
-### Case 5: Batch Processing nhiều images
+### Case 5: Batch Processing Multiple Images
 
 ```bash
 #!/bin/bash
-# Script để xử lý nhiều disk images
+# Script to process multiple disk images
 
 for img in *.img; do
     echo "Processing $img..."
@@ -265,93 +265,92 @@ done
 echo "All images processed!"
 ```
 
-## 📊 Phân tích kết quả
+## 📊 Analyzing Results
 
-### Đọc Recovery Report
+### Read Recovery Report
 
 ```bash
 cat recovery_report.txt
 ```
 
-**Report mẫu:**
+**Sample Report:**
 ```
 ============================================================
 NTFS FILE RECOVERY REPORT
 ============================================================
 
-Tổng số file: 150
-Phục hồi thành công: 143
-Thất bại: 7
-Tỷ lệ thành công: 95.33%
-Tổng dung lượng: 2.34 GB
+Total files: 150
+Successfully recovered: 143
+Failed: 7
+Success rate: 95.33%
+Total size: 2.34 GB
 
-LỖI (7):
+ERRORS (7):
 ------------------------------------------------------------
-  - encrypted_file.docx: Không đọc được dữ liệu
-  - corrupted.jpg: Thiếu dữ liệu: 1024/2048 bytes
+  - encrypted_file.docx: Unable to read data
+  - corrupted.jpg: Missing data: 1024/2048 bytes
   ...
 ```
 
-### Kiểm tra file đã phục hồi
+### Check Recovered Files
 
 ```bash
-# Đếm số file
+# Count files
 ls -1 ./recovered | wc -l
 
-# Tổng dung lượng
+# Total size
 du -sh ./recovered
 
-# List theo loại
+# List by type
 ls ./recovered/*.pdf | wc -l
 ls ./recovered/*.jpg | wc -l
 
-# Kiểm tra file integrity (cho ảnh)
+# Check file integrity (for images)
 file ./recovered/*.jpg
 ```
 
 ## 🔧 Troubleshooting
 
-### Lỗi: "Permission denied"
+### Error: "Permission denied"
 
 ```bash
-# Chạy với sudo (cẩn thận!)
+# Run with sudo (be careful!)
 sudo python3 -m src.main disk.img -o ./recovered
 
-# Hoặc thay đổi ownership
+# Or change ownership
 sudo chown $USER:$USER disk.img
 ```
 
-### Không tìm thấy file cần thiết
+### Can't Find Required File
 
 ```bash
-# Thử quét trực tiếp MFT
-# (Feature này có thể được thêm vào tool)
+# Try scanning MFT directly
+# (This feature may be added to the tool)
 
-# Hoặc sử dụng grep để tìm trong scan output
+# Or use grep to search in scan output
 python3 -m src.main disk.img --scan-only | grep -i "filename"
 ```
 
-### File phục hồi bị corrupted
+### Recovered File is Corrupted
 
 ```bash
-# Một số file có thể bị encrypted hoặc corrupted
-# Kiểm tra trong recovery report
+# Some files may be encrypted or corrupted
+# Check in recovery report
 
-# Với ảnh, có thể dùng tools khác để repair:
+# For images, use other tools to repair:
 # - JPEG: jpeginfo, jhead
 # - PNG: pngcheck
 ```
 
 ## 📝 Tips and Tricks
 
-1. **Luôn làm việc với copy của disk image**, không phải original
-2. **Quét trước, phục hồi sau** để biết có gì
-3. **Sử dụng filters** để tránh phục hồi quá nhiều file không cần
-4. **Lưu reports** cho documentation
-5. **Verify recovered files** bằng cách mở và kiểm tra
-6. **Backup ngay khi phục hồi thành công**
+1. **Always work with a copy of the disk image**, not the original
+2. **Scan first, recover later** to know what's available
+3. **Use filters** to avoid recovering too many unnecessary files
+4. **Save reports** for documentation
+5. **Verify recovered files** by opening and checking them
+6. **Backup immediately** after successful recovery
 
 ---
 
-**Chúc bạn phục hồi thành công!** 🎉
-
+**Good luck with your recovery!** 🎉
