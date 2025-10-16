@@ -6,6 +6,7 @@ Phân tích Master File Table để tìm và xác định các file đã xóa
 import pytsk3
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
+from .file_type_detector import FileTypeDetector
 
 
 class DeletedFileInfo:
@@ -28,6 +29,13 @@ class DeletedFileInfo:
         self.is_compressed = False
         self.is_sparse = False
         self.extension = ""
+        # Thông tin file type detection
+        self.detected_extension = None  # Extension nhận diện từ magic number
+        self.detected_mime_type = None  # MIME type
+        self.detected_description = None  # Mô tả loại file
+        self.is_extension_verified = False  # Extension có khớp với magic number không
+        self.info_source = None  # Nguồn thông tin: 'MFT', 'MAGIC', 'BOTH', 'MFT_FILENAME'
+        self.file_category = None  # Category: document, image, video, audio, etc.
         
     def __repr__(self):
         return f"DeletedFile(inode={self.inode}, name='{self.name}', size={self.size})"
@@ -49,6 +57,7 @@ class MFTAnalyzer:
         self.deleted_files = []
         self.total_entries = 0
         self.deleted_count = 0
+        self.file_type_detector = FileTypeDetector()
         
     def traverse_directory(self, directory: pytsk3.Directory, 
                           parent_path: str = "/") -> List[DeletedFileInfo]:
@@ -159,10 +168,287 @@ class MFTAnalyzer:
                 # Note: Encryption và sparse detection phức tạp hơn trong NTFS
                 # Cần đọc attributes để xác định chính xác
             
+            # Detect file type từ magic number (chỉ cho files, không phải directories)
+            if not info.is_directory and info.size > 0:
+                self._detect_file_type(entry, info)
+            
             return info
             
         except Exception as e:
             print(f"[!] Lỗi khi trích xuất thông tin file '{name}': {e}")
+            return None
+    
+    def _detect_file_type(self, entry, info: DeletedFileInfo):
+        """
+        Detect file type từ directory entry - ƯU TIÊN MFT
+        
+        Args:
+            entry: Directory entry object
+            info: DeletedFileInfo object cần cập nhật
+        
+        Logic: Tương tự _detect_file_type_from_inode, ưu tiên MFT
+        """
+        try:
+            # Kiểm tra MFT đã có thông tin chưa
+            has_mft_extension = bool(info.extension)
+            
+            # Mở file để đọc nội dung - TĂNG LÊN 8KB
+            file_obj = entry.read_random(0, min(8192, info.size))
+            
+            if file_obj and len(file_obj) > 0:
+                # Detect file type từ magic number
+                detection_result = self.file_type_detector.detect_from_bytes(file_obj)
+                
+                if detection_result:
+                    detected_ext, detected_mime, detected_desc = detection_result
+                    
+                    # Lưu thông tin detected
+                    info.detected_extension = detected_ext
+                    info.detected_mime_type = detected_mime
+                    info.detected_description = detected_desc
+                    
+                    # CASE 1: MFT có extension → GIỮ NGUYÊN, chỉ verify
+                    if has_mft_extension:
+                        info.is_extension_verified = (info.extension.lower() == detected_ext.lower())
+                        info.info_source = 'MFT'
+                        
+                        if not info.is_extension_verified:
+                            print(f"[!] Cảnh báo: Extension không khớp cho {info.name}")
+                            print(f"    MFT: {info.extension} vs Detected: {detected_ext}")
+                    
+                    # CASE 2: MFT không có extension → Bổ sung từ magic
+                    else:
+                        info.extension = detected_ext
+                        info.is_extension_verified = True
+                        info.info_source = 'BOTH'
+                else:
+                    # Không detect được, tin MFT
+                    if has_mft_extension:
+                        info.info_source = 'MFT'
+                        
+        except Exception as e:
+            # Không thể đọc file hoặc detect, tin MFT
+            if info.extension:
+                info.info_source = 'MFT'
+            pass
+    
+    def _detect_file_type_from_inode(self, inode: int, info: DeletedFileInfo):
+        """
+        Detect file type - KẾT HỢP 3 NGUỒN: MFT filename, Extension database, Magic number
+        
+        Args:
+            inode: Inode number
+            info: DeletedFileInfo object cần cập nhật
+        
+        Priority Logic:
+            1. MFT filename → Extension database → Magic number verify
+            2. Text files (txt, py, js): Dùng extension vì không có magic number
+            3. Binary files: Cần magic number verify
+        """
+        try:
+            # Kiểm tra xem MFT đã có thông tin đầy đủ chưa
+            has_mft_name = not info.name.startswith('inode_')
+            has_mft_extension = bool(info.extension)
+            has_extension_info = bool(info.detected_mime_type)  # Đã detect từ filename
+            
+            # Mở file theo inode
+            file_obj = self.fs_info.open_meta(inode=inode)
+            
+            # Đọc nội dung file - TĂNG LÊN 8KB để detect Office files
+            # Office files cần nhiều hơn 512 bytes để phát hiện [Content_Types].xml
+            read_size = min(8192, info.size)  # 8KB thay vì 512 bytes
+            data = file_obj.read_random(0, read_size)
+            
+            if data and len(data) > 0:
+                # Detect file type từ magic number
+                magic_detection = self.file_type_detector.detect_from_bytes(data)
+                
+                # CASE 1: MFT có đầy đủ (tên + extension) VÀ đã có thông tin từ extension database
+                if has_mft_name and has_mft_extension and has_extension_info:
+                    
+                    if magic_detection:
+                        detected_ext, detected_mime, detected_desc = magic_detection
+                        info.detected_extension = detected_ext
+                        
+                        # Verify: magic number khớp với extension?
+                        if info.extension.lower() == detected_ext.lower():
+                            # ✓ Verified: MFT extension khớp với magic number
+                            info.is_extension_verified = True
+                            info.info_source = 'MFT'  # MFT + verified
+                            # Cập nhật description từ magic (chi tiết hơn)
+                            info.detected_description = detected_desc
+                        else:
+                            # ⚠ Mismatch: Có thể giả mạo
+                            info.is_extension_verified = False
+                            info.info_source = 'MFT'  # Vẫn tin MFT, nhưng warning
+                            print(f"[!] Cảnh báo: Extension không khớp cho {info.name}")
+                            print(f"    MFT: {info.extension} ({info.detected_description})")
+                            print(f"    Magic: {detected_ext} ({detected_desc})")
+                    else:
+                        # Không detect được magic (text files, etc.)
+                        # → Tin tưởng extension database
+                        info.is_extension_verified = False  # Không verify được
+                        info.info_source = 'MFT_FILENAME'  # Từ extension database
+                
+                # CASE 2: MFT có tên nhưng không có extension
+                elif has_mft_name and not has_mft_extension:
+                    if magic_detection:
+                        detected_ext, detected_mime, detected_desc = magic_detection
+                        info.name = f"{info.name}.{detected_ext}"
+                        info.extension = detected_ext
+                        info.detected_extension = detected_ext
+                        info.detected_mime_type = detected_mime
+                        info.detected_description = detected_desc
+                        info.is_extension_verified = True
+                        info.info_source = 'BOTH'  # Tên từ MFT + extension từ magic
+                        info.file_category = self.file_type_detector.get_file_category(detected_ext)
+                
+                # CASE 3: MFT không có tên (corrupt)
+                elif not has_mft_name:
+                    if magic_detection:
+                        detected_ext, detected_mime, detected_desc = magic_detection
+                        info.name = f"inode_{inode}.{detected_ext}"
+                        info.extension = detected_ext
+                        info.detected_extension = detected_ext
+                        info.detected_mime_type = detected_mime
+                        info.detected_description = detected_desc
+                        info.is_extension_verified = True
+                        info.info_source = 'MAGIC'  # Chỉ có magic
+                        info.file_category = self.file_type_detector.get_file_category(detected_ext)
+                
+                # CASE 4: Có extension nhưng chưa có thông tin từ database
+                elif has_mft_extension and not has_extension_info:
+                    # Thử detect từ extension database
+                    ext_detection = self.file_type_detector.detect_from_extension(info.extension)
+                    if ext_detection:
+                        ext, mime, desc = ext_detection
+                        info.detected_mime_type = mime
+                        info.detected_description = desc
+                        info.file_category = self.file_type_detector.get_file_category(info.extension)
+                    
+                    # Verify bằng magic nếu có
+                    if magic_detection:
+                        detected_ext, _, detected_desc = magic_detection
+                        info.detected_extension = detected_ext
+                        info.is_extension_verified = (info.extension.lower() == detected_ext.lower())
+                        info.info_source = 'MFT' if info.is_extension_verified else 'MFT'
+                    else:
+                        info.info_source = 'MFT_FILENAME'
+            else:
+                # Không đọc được data
+                if has_mft_extension and not has_extension_info:
+                    # Thử detect từ extension database
+                    ext_detection = self.file_type_detector.detect_from_extension(info.extension)
+                    if ext_detection:
+                        ext, mime, desc = ext_detection
+                        info.detected_mime_type = mime
+                        info.detected_description = desc
+                        info.file_category = self.file_type_detector.get_file_category(info.extension)
+                        info.info_source = 'MFT_FILENAME'
+                        
+        except Exception as e:
+            # Lỗi khi đọc file, giữ nguyên thông tin từ MFT/extension database
+            if info.extension and not info.detected_mime_type:
+                # Thử detect từ extension database
+                ext_detection = self.file_type_detector.detect_from_extension(info.extension)
+                if ext_detection:
+                    ext, mime, desc = ext_detection
+                    info.detected_mime_type = mime
+                    info.detected_description = desc
+                    info.file_category = self.file_type_detector.get_file_category(info.extension)
+                    info.info_source = 'MFT_FILENAME'
+            pass
+    
+    def _extract_filename_from_mft(self, file_meta) -> Optional[str]:
+        """
+        Trích xuất tên file từ MFT attributes ($FILE_NAME)
+        
+        Args:
+            file_meta: File metadata object từ pytsk3
+            
+        Returns:
+            Tên file hoặc None nếu không tìm thấy
+        """
+        try:
+            # Duyệt qua các attributes của MFT entry
+            for attr in file_meta:
+                # $FILE_NAME attribute (type 0x30 = 48)
+                if attr.info.type == pytsk3.TSK_FS_ATTR_TYPE_NTFS_FNAME:
+                    try:
+                        # Đọc attribute data
+                        fname_data = attr.info.name
+                        if fname_data:
+                            # Decode tên file
+                            filename = fname_data.decode('utf-8', errors='ignore')
+                            # Bỏ qua các tên đặc biệt
+                            if filename and filename not in ['.', '..']:
+                                return filename
+                    except:
+                        continue
+            
+            return None
+            
+        except Exception as e:
+            return None
+    
+    def _extract_file_info_from_meta(self, file_meta, inode: int) -> Optional[DeletedFileInfo]:
+        """
+        Trích xuất thông tin file từ MFT metadata
+        
+        Args:
+            file_meta: File metadata object
+            inode: Inode number
+            
+        Returns:
+            DeletedFileInfo object hoặc None
+        """
+        try:
+            info = DeletedFileInfo()
+            meta = file_meta.info.meta
+            
+            # Thông tin cơ bản
+            info.inode = inode
+            info.size = meta.size
+            info.is_directory = (meta.type == pytsk3.TSK_FS_META_TYPE_DIR)
+            
+            # Trích xuất tên file từ MFT attributes
+            filename = self._extract_filename_from_mft(file_meta)
+            if filename:
+                info.name = filename
+                # Extract extension từ tên file
+                if '.' in filename and not info.is_directory:
+                    info.extension = filename.split('.')[-1].lower()
+                    
+                    # Detect file type từ extension trong MFT filename
+                    ext_detection = self.file_type_detector.detect_from_filename(filename)
+                    if ext_detection:
+                        ext, mime, desc = ext_detection
+                        info.detected_mime_type = mime
+                        info.detected_description = desc
+                        info.file_category = self.file_type_detector.get_file_category(info.extension)
+                        # Đánh dấu là từ MFT filename (chưa verify bằng magic)
+                        info.info_source = 'MFT_FILENAME'
+            else:
+                info.name = f"inode_{inode}"
+            
+            # Timestamps
+            if hasattr(meta, 'crtime') and meta.crtime:
+                info.created_time = datetime.fromtimestamp(meta.crtime)
+            if hasattr(meta, 'mtime') and meta.mtime:
+                info.modified_time = datetime.fromtimestamp(meta.mtime)
+            if hasattr(meta, 'atime') and meta.atime:
+                info.accessed_time = datetime.fromtimestamp(meta.atime)
+            if hasattr(meta, 'ctime') and meta.ctime:
+                info.mft_modified_time = datetime.fromtimestamp(meta.ctime)
+            
+            # Flags
+            if hasattr(meta, 'flags'):
+                info.is_compressed = bool(meta.flags & pytsk3.TSK_FS_META_FLAG_COMP)
+            
+            return info
+            
+        except Exception as e:
+            print(f"[!] Lỗi khi trích xuất thông tin từ MFT entry {inode}: {e}")
             return None
     
     def scan_for_deleted_files(self, progress_callback=None) -> List[DeletedFileInfo]:
@@ -229,23 +515,16 @@ class MFTAnalyzer:
                                     pytsk3.TSK_FS_META_FLAG_UNALLOC)
                     
                     if is_deleted:
-                        # Tạo một entry giả để trích xuất thông tin
-                        # Lưu ý: không có tên file ở đây, phải tìm từ MFT
-                        info = DeletedFileInfo()
-                        info.inode = inode
-                        info.name = f"inode_{inode}"  # Tên tạm
-                        info.size = file_meta.info.meta.size
-                        info.is_directory = (file_meta.info.meta.type == 
-                                           pytsk3.TSK_FS_META_TYPE_DIR)
+                        # Trích xuất thông tin từ MFT metadata
+                        info = self._extract_file_info_from_meta(file_meta, inode)
                         
-                        # Timestamps
-                        if hasattr(file_meta.info.meta, 'mtime'):
-                            info.modified_time = datetime.fromtimestamp(
-                                file_meta.info.meta.mtime
-                            )
-                        
-                        self.deleted_files.append(info)
-                        self.deleted_count += 1
+                        if info:
+                            # Detect file type từ magic number
+                            if not info.is_directory and info.size > 0:
+                                self._detect_file_type_from_inode(inode, info)
+                            
+                            self.deleted_files.append(info)
+                            self.deleted_count += 1
                         
                 except:
                     # Entry không tồn tại hoặc không đọc được

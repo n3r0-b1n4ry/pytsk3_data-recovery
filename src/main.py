@@ -117,9 +117,9 @@ def scan_deleted_files(parser: NTFSParser, ui: UserInterface) -> List[DeletedFil
     # Tạo MFT Analyzer
     analyzer = MFTAnalyzer(parser.get_filesystem())
     
-    # Quét deleted files
-    ui.print_info("Đang quét filesystem để tìm file đã xóa...")
-    deleted_files = analyzer.scan_for_deleted_files()
+    # Quét deleted files bằng cách quét trực tiếp MFT entries
+    ui.print_info("Đang quét MFT để tìm file đã xóa...")
+    deleted_files = analyzer.scan_mft_directly()
     
     if not deleted_files:
         ui.print_warning("Không tìm thấy file đã xóa nào")

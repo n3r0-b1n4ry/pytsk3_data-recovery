@@ -9,6 +9,7 @@ from typing import List, Optional, Callable
 from pathlib import Path
 from .mft_analyzer import DeletedFileInfo
 from .fragment_handler import FragmentHandler
+from .file_type_detector import FileTypeDetector
 
 
 class RecoveryStats:
@@ -62,6 +63,7 @@ class FileRecovery:
         self.fs_info = fs_info
         self.output_dir = output_dir
         self.fragment_handler = FragmentHandler(fs_info)
+        self.file_type_detector = FileTypeDetector()
         self.stats = RecoveryStats()
         
         # Tạo output directory nếu chưa tồn tại
@@ -107,11 +109,21 @@ class FileRecovery:
             if not is_valid:
                 print(f"[!] Cảnh báo: {file_info.name} - {message}")
             
+            # Detect file type nếu chưa có hoặc verify lại
+            if not file_info.detected_extension:
+                detection_result = self.file_type_detector.detect_from_bytes(file_data)
+                if detection_result:
+                    file_info.detected_extension = detection_result[0]
+                    file_info.detected_mime_type = detection_result[1]
+                    file_info.detected_description = detection_result[2]
+                    print(f"[i] Nhận diện file type: {file_info.detected_description}")
+            
             # Xác định tên file output
             if custom_name:
                 output_filename = custom_name
             else:
-                output_filename = self._sanitize_filename(file_info.name, file_info.inode)
+                output_filename = self._sanitize_filename(file_info.name, file_info.inode, 
+                                                         file_info.detected_extension)
             
             # Đường dẫn đầy đủ
             output_path = os.path.join(self.output_dir, output_filename)
@@ -195,13 +207,15 @@ class FileRecovery:
             print(f"[!] Lỗi khi phục hồi inode {inode}: {e}")
             return False
     
-    def _sanitize_filename(self, filename: str, inode: int) -> str:
+    def _sanitize_filename(self, filename: str, inode: int, 
+                          detected_extension: Optional[str] = None) -> str:
         """
         Làm sạch tên file để đảm bảo hợp lệ trên filesystem
         
         Args:
             filename: Tên file gốc
             inode: Inode number (dùng làm fallback)
+            detected_extension: Extension nhận diện từ magic number (optional)
             
         Returns:
             Tên file đã được sanitize
@@ -211,9 +225,21 @@ class FileRecovery:
         for char in invalid_chars:
             filename = filename.replace(char, '_')
         
-        # Nếu filename rỗng hoặc chỉ có dấu chấm, dùng inode
+        # Nếu filename rỗng hoặc chỉ có dấu chấm, dùng inode và detected extension
         if not filename or filename.strip('.') == '':
-            filename = f"recovered_file_{inode}"
+            if detected_extension:
+                filename = f"recovered_file_{inode}.{detected_extension}"
+            else:
+                filename = f"recovered_file_{inode}"
+        else:
+            # Nếu có detected extension và filename không có extension đúng
+            if detected_extension:
+                name, ext = os.path.splitext(filename)
+                current_ext = ext.lstrip('.').lower()
+                
+                # Nếu không có extension hoặc extension không khớp, thêm detected extension
+                if not ext or current_ext != detected_extension.lower():
+                    filename = f"{name}.{detected_extension}"
         
         # Giới hạn độ dài filename
         if len(filename) > 200:

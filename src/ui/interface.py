@@ -78,12 +78,35 @@ class UserInterface:
             # Cắt tên file nếu quá dài
             name = file_info.name[:40] + '...' if len(file_info.name) > 40 else file_info.name
             
+            # Xác định loại file hiển thị (ƯU TIÊN MFT)
+            file_type = ''
+            
+            if file_info.extension:
+                file_type = file_info.extension.upper()
+                
+                # Thêm ký hiệu theo nguồn thông tin
+                if file_info.info_source == 'MFT':
+                    # Từ MFT (nguồn chính thức)
+                    if file_info.is_extension_verified:
+                        file_type += ' ✓'  # MFT + verified by magic
+                    else:
+                        file_type += ' ⚠'   # MFT nhưng không khớp magic
+                elif file_info.info_source == 'BOTH':
+                    file_type += ' ✓'  # MFT name + magic extension
+                elif file_info.info_source == 'MAGIC':
+                    file_type += ' *'  # Chỉ từ magic number
+                elif file_info.info_source == 'MFT_FILENAME':
+                    file_type += ' ~'  # Từ MFT filename + extension database
+                # else: không có ký hiệu (chỉ MFT, chưa detect)
+            else:
+                file_type = 'N/A'
+            
             table_data.append([
                 idx,
                 file_info.inode,
                 name,
                 size_str,
-                file_info.extension.upper() if file_info.extension else 'N/A',
+                file_type,
                 mtime_str
             ])
         
@@ -99,6 +122,14 @@ class UserInterface:
         
         # In bảng
         print(tabulate(table_data, headers=headers, tablefmt='grid'))
+        
+        # In chú thích
+        print(f"\n{Fore.CYAN}Chú thích (3 nguồn: MFT filename, Extension DB, Magic number):")
+        print(f"  ✓ = Extension từ MFT filename + verified bằng magic number")
+        print(f"  ~ = Extension từ MFT filename + extension database (text files, code)")
+        print(f"  ⚠ = Extension từ MFT nhưng không khớp với magic number (có thể giả mạo)")
+        print(f"  * = Chỉ detect từ magic number (MFT không có thông tin)")
+        print(f"  (không ký hiệu) = Chỉ từ MFT, chưa verify{Style.RESET_ALL}")
         
         if len(file_list) > max_display:
             self.print_info(f"Hiển thị {max_display}/{len(file_list)} file. "
