@@ -98,6 +98,12 @@ Examples:
         help='Path to recovery report file'
     )
     
+    parser.add_argument(
+        '--use-carving',
+        action='store_true',
+        help='Enable advanced file carving for heavily fragmented files'
+    )
+    
     return parser.parse_args()
 
 
@@ -208,7 +214,7 @@ def recover_files(parser: NTFSParser, deleted_files: List[DeletedFileInfo],
         return
     
     # Create FileRecovery object
-    recovery = FileRecovery(parser.get_filesystem(), args.output)
+    recovery = FileRecovery(parser.get_filesystem(), args.output, use_carving=args.use_carving)
     
     # Create progress callback
     if not args.no_progress:
@@ -247,7 +253,7 @@ def recover_by_inode(parser: NTFSParser, inode: int,
     ui.print_section(f"RECOVER FILE BY INODE {inode}")
     
     # Create FileRecovery object
-    recovery = FileRecovery(parser.get_filesystem(), args.output)
+    recovery = FileRecovery(parser.get_filesystem(), args.output, use_carving=args.use_carving)
     
     # Create output filename
     output_name = ui.prompt_input(
