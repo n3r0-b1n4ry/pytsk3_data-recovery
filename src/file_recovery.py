@@ -1,15 +1,17 @@
 """
 File Recovery Module
-Core logic để phục hồi các file đã xóa từ NTFS
+Core logic for recovering deleted files from NTFS
+Enhanced with file carving capabilities for fragmented files
 """
 
 import os
 import pytsk3
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Dict
 from pathlib import Path
 from .mft_analyzer import DeletedFileInfo
 from .fragment_handler import FragmentHandler
 from .file_type_detector import FileTypeDetector
+from .file_carver import FileCarver, FragmentedFileRecovery
 
 
 class RecoveryStats:
@@ -52,21 +54,30 @@ class FileRecovery:
     Class chính để thực hiện recovery các file đã xóa
     """
     
-    def __init__(self, fs_info: pytsk3.FS_Info, output_dir: str):
+    def __init__(self, fs_info: pytsk3.FS_Info, output_dir: str, use_carving: bool = False):
         """
-        Khởi tạo File Recovery
+        Initialize File Recovery
         
         Args:
             fs_info: Filesystem info object
-            output_dir: Thư mục để lưu các file đã recover
+            output_dir: Directory to save recovered files
+            use_carving: Enable advanced file carving for fragmented files
         """
         self.fs_info = fs_info
         self.output_dir = output_dir
         self.fragment_handler = FragmentHandler(fs_info)
         self.file_type_detector = FileTypeDetector()
         self.stats = RecoveryStats()
+        self.use_carving = use_carving
         
-        # Tạo output directory nếu chưa tồn tại
+        # Initialize file carving if enabled
+        if self.use_carving:
+            self.fragmented_recovery = FragmentedFileRecovery(fs_info, self.fragment_handler)
+            print("[i] Advanced file carving enabled for fragmented files")
+        else:
+            self.fragmented_recovery = None
+        
+        # Create output directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
         
     def recover_file(self, file_info: DeletedFileInfo, 
@@ -91,23 +102,38 @@ class FileRecovery:
                 self.stats.add_failure(f"{file_info.name}: File rỗng")
                 return False
             
-            # Mở file object theo inode
+            # Open file object by inode
             file_obj = self.fs_info.open_meta(inode=file_info.inode)
             
-            # Đọc nội dung file (fragment handler tự động xử lý fragmentation)
+            # Try standard recovery first
             file_data = self.fragment_handler.read_fragmented_file(file_obj)
+            recovery_method = "standard"
+            carving_metadata = {}
+            
+            # If standard recovery fails or carving is enabled, try advanced recovery
+            if (file_data is None or len(file_data) == 0) and self.use_carving:
+                print(f"[i] Standard recovery failed for {file_info.name}, trying file carving...")
+                file_data, carving_metadata = self.fragmented_recovery.recover_fragmented_file_advanced(
+                    file_obj, file_info.size
+                )
+                recovery_method = "file_carving"
+                
+                if carving_metadata.get('validation'):
+                    print(f"[i] Carving validation: {carving_metadata['validation']}")
             
             if file_data is None or len(file_data) == 0:
-                self.stats.add_failure(f"{file_info.name}: Không đọc được dữ liệu")
+                self.stats.add_failure(f"{file_info.name}: Unable to read data")
                 return False
             
-            # Kiểm tra data integrity
+            # Check data integrity
             is_valid, message = self.fragment_handler.check_data_integrity(
                 file_data, file_info.size
             )
             
             if not is_valid:
-                print(f"[!] Cảnh báo: {file_info.name} - {message}")
+                print(f"[!] Warning: {file_info.name} - {message}")
+                if carving_metadata.get('is_complete') == False:
+                    print(f"[!] File may be incomplete (fragments: {carving_metadata.get('fragments_count', 0)})")
             
             # Detect file type nếu chưa có hoặc verify lại
             if not file_info.detected_extension:
